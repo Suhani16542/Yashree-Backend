@@ -4,8 +4,11 @@ export const createAcademyVideoSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title cannot exceed 200 characters').trim(),
   videoUrl: z.string().trim().optional(),
   category: z.string().min(1, 'Category is required').max(100).trim(),
+  description: z.string().max(2000).optional().nullable(),
   duration: z.string().max(50).optional().nullable(),
   thumbnailUrl: z.string().optional().nullable(),
+  videoSource: z.enum(['youtube', 'upload']).optional(),
+  videoType: z.enum(['youtube', 'upload']).optional(),
   published: z
     .union([z.boolean(), z.string()])
     .optional()
@@ -20,3 +23,4 @@ export const getAcademyVideosQuerySchema = z.object({
 
 export type CreateAcademyVideoInput = z.infer<typeof createAcademyVideoSchema>;
 export type GetAcademyVideosQuery = z.infer<typeof getAcademyVideosQuerySchema>;
+

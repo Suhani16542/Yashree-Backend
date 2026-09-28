@@ -25,5 +25,7 @@ router.use('/internships', internshipRoutes);
 router.use('/events', eventRoutes);
 router.use('/gallery', galleryRoutes);
 router.use('/academy-videos', academyVideoRoutes);
+router.use('/academy', academyVideoRoutes);
 
 export const apiRouter = router;
+

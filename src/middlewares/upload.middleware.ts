@@ -128,20 +128,41 @@ const mediaFileFilter = (
 ) => {
   const ext = path.extname(file.originalname).toLowerCase();
   const allowedImageExts = ['.jpg', '.jpeg', '.png', '.webp'];
-  const allowedVideoExts = ['.mp4', '.webm', '.mov', '.mkv'];
+  const allowedImageMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+  const allowedVideoExts = ['.mp4', '.webm', '.mov', '.mkv', '.ogg', '.m4v'];
+  const allowedVideoMimeTypes = [
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-matroska',
+    'video/ogg',
+    'video/x-m4v',
+  ];
 
   if (file.fieldname === 'thumbnail') {
-    if (allowedImageExts.includes(ext)) {
+    if (allowedImageExts.includes(ext) && (allowedImageMimeTypes.includes(file.mimetype) || !file.mimetype)) {
       return cb(null, true);
     }
-    return cb(ApiError.badRequest('Invalid thumbnail format. Allowed: JPG, JPEG, PNG, WebP.'));
+    return cb(ApiError.badRequest('Invalid thumbnail format. Allowed formats: JPG, JPEG, PNG, WebP.'));
   }
 
-  if (file.fieldname === 'videoFile' || file.fieldname === 'video') {
-    if (allowedVideoExts.includes(ext)) {
+  if (
+    file.fieldname === 'videoFile' ||
+    file.fieldname === 'video' ||
+    file.fieldname === 'file'
+  ) {
+    if (
+      allowedVideoExts.includes(ext) &&
+      (allowedVideoMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('video/'))
+    ) {
       return cb(null, true);
     }
-    return cb(ApiError.badRequest('Invalid video format. Allowed: MP4, WebM, MOV, MKV.'));
+    return cb(
+      ApiError.badRequest(
+        'Invalid video format or MIME type. Allowed formats: MP4 (.mp4), WebM (.webm), MOV (.mov), MKV (.mkv).'
+      )
+    );
   }
 
   cb(null, true);
@@ -150,7 +171,8 @@ const mediaFileFilter = (
 export const uploadAcademyMedia = multer({
   storage: createStorage('videos'),
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB max for video files, 5MB thumbnail
+    fileSize: 100 * 1024 * 1024, // 100MB max for video files
   },
   fileFilter: mediaFileFilter,
 });
+

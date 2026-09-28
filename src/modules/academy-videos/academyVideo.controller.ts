@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import path from 'path';
 import { AcademyVideoService } from './academyVideo.service.js';
 import { sendSuccess } from '../../utils/apiResponse.js';
 import { StorageService } from '../../services/storage/storage.service.js';
+import { ApiError } from '../../utils/apiError.js';
 
 export class AcademyVideoController {
   static async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -13,6 +15,66 @@ export class AcademyVideoController {
         message: 'Academy videos retrieved successfully',
         data: result.videos,
         meta: result.pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const video = await AcademyVideoService.getAcademyVideoById(id);
+      sendSuccess({
+        res,
+        statusCode: 200,
+        message: 'Academy video retrieved successfully',
+        data: video,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Standalone direct media upload endpoint (video or thumbnail)
+   */
+  static async uploadMedia(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const file =
+        req.file ||
+        files?.videoFile?.[0] ||
+        files?.video?.[0] ||
+        files?.file?.[0] ||
+        files?.thumbnail?.[0];
+
+      if (!file) {
+        throw ApiError.badRequest('No media file provided for upload.');
+      }
+
+      const ext = path.extname(file.originalname).toLowerCase();
+      const isVideo =
+        file.mimetype.startsWith('video/') ||
+        ['.mp4', '.webm', '.mov', '.mkv', '.ogg', '.m4v'].includes(ext);
+
+      const result = isVideo
+        ? await StorageService.handleVideoUpload(file, 'videos')
+        : await StorageService.handleImageUpload(file, 'videos');
+
+      sendSuccess({
+        res,
+        statusCode: 200,
+        message: `${isVideo ? 'Video' : 'Image'} uploaded successfully`,
+        data: {
+          url: result.url,
+          videoUrl: isVideo ? result.url : undefined,
+          videoSource: isVideo ? 'upload' : undefined,
+          videoType: isVideo ? 'upload' : undefined,
+          filename: file.filename || file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+        },
       });
     } catch (error) {
       next(error);
@@ -32,6 +94,9 @@ export class AcademyVideoController {
         resolvedVideoUrl = videoMedia.url;
       } else if (files?.video?.[0]) {
         const videoMedia = await StorageService.handleVideoUpload(files.video[0], 'videos');
+        resolvedVideoUrl = videoMedia.url;
+      } else if (files?.file?.[0]) {
+        const videoMedia = await StorageService.handleVideoUpload(files.file[0], 'videos');
         resolvedVideoUrl = videoMedia.url;
       }
 
@@ -76,3 +141,4 @@ export class AcademyVideoController {
     }
   }
 }
+

@@ -28,13 +28,24 @@ export class AcademyVideoService {
       throw ApiError.badRequest('A video URL or uploaded video file is required.');
     }
 
+    const isYoutube =
+      !resolvedVideoUrl &&
+      (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
+
+    const videoSource = resolvedVideoUrl
+      ? 'upload'
+      : isYoutube
+      ? 'youtube'
+      : (data.videoSource || 'youtube');
+    const videoType = data.videoType || videoSource;
+
     let thumbnail: string | null = null;
 
     if (resolvedThumbnailUrl) {
       thumbnail = resolvedThumbnailUrl;
     } else if (data.thumbnailUrl) {
       thumbnail = data.thumbnailUrl;
-    } else {
+    } else if (isYoutube) {
       // Auto-extract thumbnail for YouTube videos
       thumbnail = extractYouTubeThumbnail(videoUrl);
     }
@@ -43,7 +54,10 @@ export class AcademyVideoService {
       const video = await AcademyVideo.create({
         title: data.title,
         videoUrl,
+        videoSource,
+        videoType,
         category: data.category,
+        description: data.description || null,
         duration: data.duration || null,
         thumbnail,
         published: data.published ?? true,
@@ -90,6 +104,14 @@ export class AcademyVideoService {
     };
   }
 
+  static async getAcademyVideoById(id: string) {
+    const video = await AcademyVideo.findById(id);
+    if (!video) {
+      throw ApiError.notFound(`Academy video with ID ${id} not found`);
+    }
+    return video;
+  }
+
   static async deleteAcademyVideo(id: string) {
     const existing = await AcademyVideo.findById(id);
 
@@ -97,13 +119,20 @@ export class AcademyVideoService {
       throw ApiError.notFound(`Academy video with ID ${id} not found`);
     }
 
-    // Clean up video media if locally uploaded or Cloudinary
-    if (existing.videoUrl) {
+    // Clean up video media if locally uploaded or Cloudinary (skip external YouTube URLs)
+    if (
+      existing.videoUrl &&
+      !existing.videoUrl.includes('youtube.com') &&
+      !existing.videoUrl.includes('youtu.be')
+    ) {
       await StorageService.deleteMedia(existing.videoUrl, 'video');
     }
 
     // Clean up thumbnail if locally uploaded or Cloudinary
-    if (existing.thumbnail && !existing.thumbnail.includes('img.youtube.com')) {
+    if (
+      existing.thumbnail &&
+      !existing.thumbnail.includes('img.youtube.com')
+    ) {
       await StorageService.deleteMedia(existing.thumbnail, 'image');
     }
 
@@ -112,3 +141,4 @@ export class AcademyVideoService {
     return { id };
   }
 }
+

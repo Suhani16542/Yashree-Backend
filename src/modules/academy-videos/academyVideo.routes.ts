@@ -17,6 +17,23 @@ router.get(
   AcademyVideoController.getAll
 );
 
+// Public route: get single video
+router.get('/:id', AcademyVideoController.getById);
+
+// Admin route: standalone direct media upload
+router.post(
+  '/upload',
+  requireAuth,
+  requireAdmin,
+  uploadAcademyMedia.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'videoFile', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+  ]),
+  AcademyVideoController.uploadMedia
+);
+
 // Admin route: add video (supports URL or uploaded video + thumbnail)
 router.post(
   '/',
@@ -26,6 +43,7 @@ router.post(
     { name: 'thumbnail', maxCount: 1 },
     { name: 'videoFile', maxCount: 1 },
     { name: 'video', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
   ]),
   validate({ body: createAcademyVideoSchema }),
   AcademyVideoController.create
@@ -35,3 +53,4 @@ router.post(
 router.delete('/:id', requireAuth, requireAdmin, AcademyVideoController.delete);
 
 export const academyVideoRoutes = router;
+

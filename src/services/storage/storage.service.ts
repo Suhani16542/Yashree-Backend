@@ -89,8 +89,13 @@ export class StorageService {
   static async deleteMedia(url: string, resourceType: 'image' | 'video' = 'image'): Promise<void> {
     if (!url) return;
 
+    // Skip YouTube and third-party external embeds
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return;
+    }
+
     // Check if Cloudinary URL
-    if (url.includes('cloudinary.com') || url.startsWith('http://') || url.startsWith('https://')) {
+    if (url.includes('cloudinary.com')) {
       try {
         // Extract public_id from Cloudinary URL if standard format
         // Example: https://res.cloudinary.com/demo/image/upload/v12345678/yashree/gallery/sample.jpg -> yashree/gallery/sample
@@ -103,6 +108,7 @@ export class StorageService {
       }
       return;
     }
+
 
     // Local file deletion
     if (url.startsWith('/uploads/')) {
