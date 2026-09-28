@@ -29,9 +29,31 @@ export class EmailService {
       return { success: false, skipped: true, error: 'Sender email missing' };
     }
 
-    const recipients = Array.isArray(options.to)
-      ? options.to.map((email) => ({ email: email.trim() }))
-      : [{ email: options.to.trim() }];
+    // Support single or multiple recipients (array or comma-separated string)
+    const rawRecipients = Array.isArray(options.to) ? options.to : [options.to];
+    const cleanedRecipients: string[] = [];
+
+    for (const item of rawRecipients) {
+      if (typeof item === 'string') {
+        const parts = item.split(',').map((email) => email.trim()).filter(Boolean);
+        for (const part of parts) {
+          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(part)) {
+            cleanedRecipients.push(part);
+          } else {
+            logger.warn(`Invalid recipient email skipped: ${part}`);
+          }
+        }
+      }
+    }
+
+    const uniqueRecipients = [...new Set(cleanedRecipients)];
+
+    if (uniqueRecipients.length === 0) {
+      logger.warn('Email notification skipped: No valid recipients found.');
+      return { success: false, skipped: true, error: 'No valid recipient email' };
+    }
+
+    const recipients = uniqueRecipients.map((email) => ({ email }));
 
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -78,19 +100,19 @@ export class EmailService {
   /**
    * Safe Admin Notification for New Admission / Enquiry
    */
-  static async sendInquiryNotification(payload: InquiryEmailPayload): Promise<void> {
+  static async sendInquiryNotification(payload: InquiryEmailPayload): Promise<EmailSendResult> {
     const config = getBrevoConfig();
-    const recipient = config.notificationEmail;
+    const recipients = config.notificationEmails;
 
-    if (!recipient) {
+    if (!recipients || recipients.length === 0) {
       logger.info('Inquiry email notification skipped: NOTIFICATION_EMAIL is not configured.');
-      return;
+      return { success: false, skipped: true, error: 'NOTIFICATION_EMAIL missing' };
     }
 
     try {
       const { html, text } = renderNewInquiryTemplate(payload);
-      await this.sendEmail({
-        to: recipient,
+      return await this.sendEmail({
+        to: recipients,
         subject: `🔔 [New Enquiry] ${payload.name} - ${payload.course}`,
         html,
         text,
@@ -98,6 +120,7 @@ export class EmailService {
     } catch (err: any) {
       // Safe fallback - caller never throws
       logger.error('Unexpected error in sendInquiryNotification:', err?.message || err);
+      return { success: false, error: err?.message || 'Unexpected error' };
     }
   }
 
@@ -106,9 +129,9 @@ export class EmailService {
    */
   static async sendInternshipNotification(payload: InternshipEmailPayload): Promise<void> {
     const config = getBrevoConfig();
-    const recipient = config.notificationEmail;
+    const recipients = config.notificationEmails;
 
-    if (!recipient) {
+    if (!recipients || recipients.length === 0) {
       logger.info('Internship email notification skipped: NOTIFICATION_EMAIL is not configured.');
       return;
     }
@@ -116,7 +139,7 @@ export class EmailService {
     try {
       const { html, text } = renderNewInternshipTemplate(payload);
       await this.sendEmail({
-        to: recipient,
+        to: recipients,
         subject: `🔔 [New Internship Application] ${payload.fullName} - ${payload.areaOfInterest}`,
         html,
         text,
